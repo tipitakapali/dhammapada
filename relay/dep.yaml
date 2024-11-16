@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bluesky-relay
+  namespace: bluesky
+spec:
+  selector:
+    matchLabels:
+      app: bluesky-relay
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: bluesky-relay
+    spec:
+      containers:
+      - name: bluesky-relay
+        image: theosanderson/bluesky-relay:latest  # Replace with your image
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8765
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi

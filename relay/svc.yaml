@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: bluesky-relay
+  namespace: bluesky
+spec:
+  selector:
+    app: bluesky-relay
+  ports:
+  - port: 80
+    targetPort: 8765

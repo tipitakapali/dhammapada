@@ -20,7 +20,7 @@
         const camera = new THREE.PerspectiveCamera(110, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.sortObjects = false;
+        renderer.sortObjects = false;  // Keep false to prevent z-fighting
         document.body.appendChild(renderer.domElement);
 
         const tunnelLength = 40;
@@ -79,27 +79,23 @@
             const r = Math.floor(Math.random() * 200 + 55);
             const g = Math.floor(Math.random() * 200 + 55);
             const b = Math.floor(Math.random() * 200 + 55);
-            const fillStyle = `rgba(${r}, ${g}, ${b}, 0.8)`; // Increased opacity
+            const fillStyle = `rgba(${r}, ${g}, ${b}, 0.8)`;
 
             lines.forEach((line, index) => {
                 const y = startY + (index * lineHeight) + lineHeight/2;
                 
-                // Add multiple shadow layers for better visibility
                 context.shadowColor = 'rgba(0, 0, 0, 0.8)';
                 context.shadowBlur = 15;
                 context.shadowOffsetX = 0;
                 context.shadowOffsetY = 0;
                 
-                // Draw dark outline
                 context.strokeStyle = 'rgba(0, 0, 0, 0.8)';
                 context.lineWidth = 6;
                 context.strokeText(line, canvas.width/2, y);
                 
-                // Draw bright text with shadow
                 context.fillStyle = 'rgba(255, 255, 255, 0.85)';
                 context.fillText(line, canvas.width/2, y);
                 
-                // Draw colored overlay
                 context.fillStyle = fillStyle;
                 context.fillText(line, canvas.width/2, y);
             });
@@ -119,7 +115,7 @@
                 map: texture,
                 transparent: true,
                 opacity: 1,
-                depthWrite: false,
+                depthWrite: false,  // Keep false to prevent z-fighting
                 depthTest: true,
                 side: THREE.DoubleSide
             });
@@ -132,7 +128,7 @@
             mesh.position.z = -tunnelLength;
             
             const randomOffset = Math.random() * 0.5;
-            if (text.includes('🔥')|| wall>3){
+            if (text.includes('🔥') || wall > 3) {
                 wall = -1;
             }
             
@@ -175,17 +171,16 @@
             }
             
             mesh.position.z += randomOffset;
-
             
             scene.add(mesh);
             messageObjects.push({
                 mesh: mesh,
-                speed: 0.5*(0.08 + Math.random() * 0.12),
+                speed: 0.5 * (0.08 + Math.random() * 0.12),
                 createdAt: performance.now()
             });
         }
 
-        const ws = new WebSocket('wss://jetstream2.us-east.bsky.network/subscribe?wantedCollections=app.bsky.feed.post');
+        const ws = new WebSocket('ws://bsky-relay.c.theo.io/subscribe?wantedCollections=app.bsky.feed.post');
         
         ws.onmessage = function(event) {
             const data = JSON.parse(event.data);
@@ -219,7 +214,9 @@
             for (let i = messageObjects.length - 1; i >= 0; i--) {
                 const message = messageObjects[i];
                 message.mesh.position.z += message.speed * deltaTime;
-                message.mesh.renderOrder = message.mesh.special== true ? -100000 : -message.mesh.position.z;
+                
+                // Simple renderOrder based on z-position and special status
+                message.mesh.renderOrder = message.mesh.special ? 1 : -message.mesh.position.z;
 
                 if (message?.mesh?.position?.z > 10) {
                     if (scene && message.mesh && scene.children.includes(message.mesh)) {
