@@ -7,7 +7,7 @@ spec:
   selector:
     matchLabels:
       app: bluesky-relay
-  replicas: 3
+  replicas: 10
   template:
     metadata:
       labels:
@@ -26,3 +26,16 @@ spec:
           limits:
             cpu: 500m
             memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8090
+          initialDelaySeconds: 5
+          periodSeconds: 10
+
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8090
+          initialDelaySeconds: 5
+          periodSeconds: 10
