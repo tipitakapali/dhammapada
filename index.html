@@ -10,6 +10,7 @@
 </head>
 <body>
     <script>
+        let rotationDir = 1;
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(110, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ alpha: true });
@@ -140,6 +141,8 @@
                     mesh.rotation.x = -Math.PI/2;
                     break;
                 case 4: // center
+                // invisible
+                
                     const getCoordsNotInCenter = () => {
                         const x = (Math.random()) * 12 - 6;
                         const y = (Math.random()) * 12 - 6;
@@ -151,6 +154,7 @@
                     const { x, y } = getCoordsNotInCenter();
                     mesh.position.x = x;
                     mesh.position.y = y;
+                    mesh.position.x=-100;
                     break;
             }
             
@@ -188,6 +192,15 @@
             // Calculate time delta
             const deltaTime = lastTime === 0 ? 0 : (currentTime - lastTime) / 16.667; // Normalize to ~60fps
             lastTime = currentTime;
+            const rotationExtent = 0.3;
+           
+            camera.rotation.z += deltaTime * 0.0005 * rotationDir;
+            if (camera.rotation.z > rotationExtent) {
+                rotationDir = -1;
+            } else if (camera.rotation.z < -rotationExtent) {
+                rotationDir = 1;
+            }
+
 
             for (let i = messageObjects.length - 1; i >= 0; i--) {
                 const message = messageObjects[i];
