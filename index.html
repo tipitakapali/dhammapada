@@ -14,9 +14,7 @@
     <script>
         let rotationDir = 1;
         const scene = new THREE.Scene();
-        // background black
         scene.background = new THREE.Color(0x000000);
-        // fog at the end of the tunnel
         scene.fog = new THREE.Fog(0x000000, 35, 40);
 
         const camera = new THREE.PerspectiveCamera(110, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -32,7 +30,6 @@
             side: THREE.BackSide 
         });
         const tunnel = new THREE.Mesh(tunnelGeometry, tunnelMaterial);
-        //scene.add(tunnel);
 
         camera.position.z = 8;
         camera.position.y = 1;
@@ -41,7 +38,6 @@
         const messageObjects = [];
         let lastTime = 0;
 
-        // Previous text wrapping and texture creation functions remain the same...
         function wrapText(context, text, maxWidth) {
             const words = text.split(' ');
             const lines = [];
@@ -64,7 +60,7 @@
         function createTextTexture(text) {
             const canvas = document.createElement('canvas');
             const context = canvas.getContext('2d');
-            canvas.width = 512;
+            canvas.width = 700;
             canvas.height = 256;
             
             context.clearRect(0, 0, canvas.width, canvas.height);
@@ -83,13 +79,27 @@
             const r = Math.floor(Math.random() * 200 + 55);
             const g = Math.floor(Math.random() * 200 + 55);
             const b = Math.floor(Math.random() * 200 + 55);
-            const fillStyle = `rgba(${r}, ${g}, ${b},0.7)`;
+            const fillStyle = `rgba(${r}, ${g}, ${b}, 0.8)`; // Increased opacity
 
             lines.forEach((line, index) => {
                 const y = startY + (index * lineHeight) + lineHeight/2;
-                context.shadowBlur = 10;
-                context.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                
+                // Add multiple shadow layers for better visibility
+                context.shadowColor = 'rgba(0, 0, 0, 0.8)';
+                context.shadowBlur = 15;
+                context.shadowOffsetX = 0;
+                context.shadowOffsetY = 0;
+                
+                // Draw dark outline
+                context.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+                context.lineWidth = 6;
+                context.strokeText(line, canvas.width/2, y);
+                
+                // Draw bright text with shadow
+                context.fillStyle = 'rgba(255, 255, 255, 0.85)';
                 context.fillText(line, canvas.width/2, y);
+                
+                // Draw colored overlay
                 context.fillStyle = fillStyle;
                 context.fillText(line, canvas.width/2, y);
             });
@@ -111,15 +121,11 @@
                 opacity: 1,
                 depthWrite: false,
                 depthTest: true,
-              //  blending: THREE.CustomBlending,
-               // blendEquation: THREE.AddEquation,
-               // blendSrc: THREE.SrcAlphaFactor,
-               // blendDst: THREE.OneMinusSrcAlphaFactor,
                 side: THREE.DoubleSide
             });
 
             const height = Math.max(1.5, lineCount * 0.75);
-            const geometry = new THREE.PlaneGeometry(6, height);
+            const geometry = new THREE.PlaneGeometry(7, height);
             const mesh = new THREE.Mesh(geometry, material);
             
             let wall = Math.floor(Math.random() * 4.01);
@@ -129,13 +135,10 @@
             if (text.includes('🔥')|| wall>3){
                 wall = -1;
             }
-
             
             switch(wall) {
-                case -1: // center
-                // invisible
-                    const centerExtent=10
-                
+                case -1:
+                    const centerExtent = 10;
                     const getCoordsNotInCenter = () => {
                         const x = (Math.random()) * centerExtent - centerExtent/2;
                         const y = (Math.random()) * centerExtent - centerExtent/2;
@@ -147,34 +150,32 @@
                     const { x, y } = getCoordsNotInCenter();
                     mesh.position.x = x;
                     mesh.position.y = y;
-                    
+                    mesh.special = true;
                     break;
-
-                case 0: // right wall
+                case 0:
                     mesh.position.x = 7.4;
                     mesh.position.y = Math.random() * 12 - 6;
                     mesh.rotation.y = -Math.PI/2;
                     break;
-                case 1: // left wall
+                case 1:
                     mesh.position.x = -7.4;
                     mesh.position.y = Math.random() * 12 - 6;
                     mesh.rotation.y = Math.PI/2;
                     break;
-                case 2: // top wall
+                case 2:
                     mesh.position.x = Math.random() * 12 - 6;
                     mesh.position.y = 7.4;
                     mesh.rotation.x = Math.PI/2;
                     break;
-                case 3: // bottom wall
+                case 3:
                     mesh.position.x = Math.random() * 12 - 6;
                     mesh.position.y = -7.4;
                     mesh.rotation.x = -Math.PI/2;
                     break;
-                
             }
             
             mesh.position.z += randomOffset;
-            mesh.renderOrder = -mesh.position.z;
+
             
             scene.add(mesh);
             messageObjects.push({
@@ -204,8 +205,7 @@
         function animate(currentTime) {
             requestAnimationFrame(animate);
 
-            // Calculate time delta
-            const deltaTime = lastTime === 0 ? 0 : (currentTime - lastTime) / 16.667; // Normalize to ~60fps
+            const deltaTime = lastTime === 0 ? 0 : (currentTime - lastTime) / 16.667;
             lastTime = currentTime;
             const rotationExtent = 0.3;
            
@@ -216,53 +216,40 @@
                 rotationDir = 1;
             }
 
-
             for (let i = messageObjects.length - 1; i >= 0; i--) {
                 const message = messageObjects[i];
-                
-                // Apply time-based movement
                 message.mesh.position.z += message.speed * deltaTime;
-                message.mesh.renderOrder = -message.mesh.position.z;
-
-                // Calculate age-based effects
-                const age = currentTime - message.createdAt;
-                
+                message.mesh.renderOrder = message.mesh.special== true ? -100000 : -message.mesh.position.z;
 
                 if (message?.mesh?.position?.z > 10) {
-    // Remove from scene first
-    if (scene && message.mesh && scene.children.includes(message.mesh)) {
-        scene.remove(message.mesh);
-    }
-    
-    // Safely dispose geometry
-    if (message.mesh?.geometry) {
-        message.mesh.geometry.dispose();
-        message.mesh.geometry = null;
-    }
-    
-    // Safely dispose textures
-    if (message.mesh?.material?.map) {
-        message.mesh.material.map.dispose();
-        message.mesh.material.map = null;
-    }
-    
-    // Safely dispose material
-    if (message.mesh?.material) {
-        message.mesh.material.dispose();
-        message.mesh.material = null;
-    }
-    
-    // Remove reference from array
-    if (messageObjects[i]) {
-        messageObjects.splice(i, 1);
-        i--; // Adjust iterator since we removed an element
-    }
-    
-    // Clear mesh reference
-    if (message.mesh) {
-        message.mesh = null;
-    }
-}
+                    if (scene && message.mesh && scene.children.includes(message.mesh)) {
+                        scene.remove(message.mesh);
+                    }
+                    
+                    if (message.mesh?.geometry) {
+                        message.mesh.geometry.dispose();
+                        message.mesh.geometry = null;
+                    }
+                    
+                    if (message.mesh?.material?.map) {
+                        message.mesh.material.map.dispose();
+                        message.mesh.material.map = null;
+                    }
+                    
+                    if (message.mesh?.material) {
+                        message.mesh.material.dispose();
+                        message.mesh.material = null;
+                    }
+                    
+                    if (messageObjects[i]) {
+                        messageObjects.splice(i, 1);
+                        i--;
+                    }
+                    
+                    if (message.mesh) {
+                        message.mesh = null;
+                    }
+                }
             }
 
             renderer.render(scene, camera);
