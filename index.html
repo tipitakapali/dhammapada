@@ -18,10 +18,22 @@
         scene.fog = new THREE.Fog(0x000000, 35, 40);
 
         const camera = new THREE.PerspectiveCamera(110, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ alpha: true });
+        const renderer = new THREE.WebGLRenderer({ 
+            alpha: true,
+          //  logarithmicDepthBuffer: true 
+        });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.sortObjects = false;  // Keep false to prevent z-fighting
+        renderer.autoClear = false;  //
+        renderer.sortObjects = false;  //
         document.body.appendChild(renderer.domElement);
+
+        // Create two scenes: one for regular messages, one for special
+        const regularScene = new THREE.Scene();
+        regularScene.background = new THREE.Color(0x000000);
+        regularScene.fog = new THREE.Fog(0x000000, 35, 40);
+
+        const specialScene = new THREE.Scene();
+        specialScene.fog = new THREE.Fog(0x000000, 35, 40);
 
         const tunnelLength = 40;
         const tunnelGeometry = new THREE.BoxGeometry(15, 15, tunnelLength);
@@ -30,7 +42,7 @@
             side: THREE.BackSide 
         });
         const tunnel = new THREE.Mesh(tunnelGeometry, tunnelMaterial);
-
+      
         camera.position.z = 8;
         camera.position.y = 1;
         camera.rotation.x = -0.1;
@@ -57,7 +69,7 @@
             return lines;
         }
 
-        function createTextTexture(text) {
+        function createTextTexture(text, specialColor) {
             const canvas = document.createElement('canvas');
             const context = canvas.getContext('2d');
             canvas.width = 700;
@@ -76,9 +88,17 @@
             const totalHeight = lines.length * lineHeight;
             const startY = (canvas.height - totalHeight) / 2;
 
-            const r = Math.floor(Math.random() * 200 + 55);
-            const g = Math.floor(Math.random() * 200 + 55);
-            const b = Math.floor(Math.random() * 200 + 55);
+            let r = Math.floor(Math.random() * 200 + 55);
+            let g = Math.floor(Math.random() * 200 + 55);
+            let b = Math.floor(Math.random() * 200 + 55);
+
+            if (specialColor) {
+                // brighten more
+                r = Math.floor(Math.random() * 100 + 155);
+                g = Math.floor(Math.random() * 100 + 155);
+                b = Math.floor(Math.random() * 100 + 155);
+                
+            }
             const fillStyle = `rgba(${r}, ${g}, ${b}, 0.8)`;
 
             lines.forEach((line, index) => {
@@ -109,28 +129,33 @@
         }
 
         function createMessage(text) {
+            let wall = Math.floor(Math.random() * 4.03);
+            if (text.includes('🔥') || wall > 3) {
+                wall = -1;
+            }
             document.getElementById('temporary-loading-message').style.display = 'none';
-            const { texture, lineCount } = createTextTexture(text);
+            const { texture, lineCount } = createTextTexture(text,wall==-1);
+            
+            const height = Math.max(1.5, lineCount * 0.75);
+            const geometry = new THREE.PlaneGeometry(7, height);
+            
+            
+            const randomOffset = Math.random() * 0.5;
+            
+           
+
+            // Create different materials for special vs regular messages
             const material = new THREE.MeshBasicMaterial({ 
                 map: texture,
                 transparent: true,
                 opacity: 1,
-                depthWrite: false,  // Keep false to prevent z-fighting
-                depthTest: true,
-                side: THREE.DoubleSide
+                depthWrite: false,
+                depthTest: wall === -1 ? false : true,
+                side: THREE.FrontSide
             });
 
-            const height = Math.max(1.5, lineCount * 0.75);
-            const geometry = new THREE.PlaneGeometry(7, height);
             const mesh = new THREE.Mesh(geometry, material);
-            
-            let wall = Math.floor(Math.random() * 4.01);
-            mesh.position.z = -tunnelLength;
-            
-            const randomOffset = Math.random() * 0.5;
-            if (text.includes('🔥') || wall > 3) {
-                wall = -1;
-            }
+            mesh.position.z = -tunnelLength + randomOffset;
             
             switch(wall) {
                 case -1:
@@ -147,36 +172,40 @@
                     mesh.position.x = x;
                     mesh.position.y = y;
                     mesh.special = true;
+                    mesh.renderOrder = Infinity;
+                    specialScene.add(mesh);  // Add to special scene
                     break;
-                case 0:
-                    mesh.position.x = 7.4;
-                    mesh.position.y = Math.random() * 12 - 6;
-                    mesh.rotation.y = -Math.PI/2;
-                    break;
-                case 1:
-                    mesh.position.x = -7.4;
-                    mesh.position.y = Math.random() * 12 - 6;
-                    mesh.rotation.y = Math.PI/2;
-                    break;
-                case 2:
-                    mesh.position.x = Math.random() * 12 - 6;
-                    mesh.position.y = 7.4;
-                    mesh.rotation.x = Math.PI/2;
-                    break;
-                case 3:
-                    mesh.position.x = Math.random() * 12 - 6;
-                    mesh.position.y = -7.4;
-                    mesh.rotation.x = -Math.PI/2;
-                    break;
+                default:
+                    switch(wall) {
+                        case 0:
+                            mesh.position.x = 7.4;
+                            mesh.position.y = Math.random() * 12 - 6;
+                            mesh.rotation.y = -Math.PI/2;
+                            break;
+                        case 1:
+                            mesh.position.x = -7.4;
+                            mesh.position.y = Math.random() * 12 - 6;
+                            mesh.rotation.y = Math.PI/2;
+                            break;
+                        case 2:
+                            mesh.position.x = Math.random() * 12 - 6;
+                            mesh.position.y = 7.4;
+                            mesh.rotation.x = Math.PI/2;
+                            break;
+                        case 3:
+                            mesh.position.x = Math.random() * 12 - 6;
+                            mesh.position.y = -7.4;
+                            mesh.rotation.x = -Math.PI/2;
+                            break;
+                    }
+                    regularScene.add(mesh);  // Add to regular scene
             }
             
-            mesh.position.z += randomOffset;
-            
-            scene.add(mesh);
             messageObjects.push({
                 mesh: mesh,
                 speed: 0.5 * (0.08 + Math.random() * 0.12),
-                createdAt: performance.now()
+                createdAt: performance.now(),
+                special: wall === -1
             });
         }
 
@@ -214,13 +243,11 @@
             for (let i = messageObjects.length - 1; i >= 0; i--) {
                 const message = messageObjects[i];
                 message.mesh.position.z += message.speed * deltaTime;
-                
-                // Simple renderOrder based on z-position and special status
-                message.mesh.renderOrder = message.mesh.special ? 1 : -message.mesh.position.z;
 
                 if (message?.mesh?.position?.z > 10) {
-                    if (scene && message.mesh && scene.children.includes(message.mesh)) {
-                        scene.remove(message.mesh);
+                    const targetScene = message.special ? specialScene : regularScene;
+                    if (targetScene && message.mesh && targetScene.children.includes(message.mesh)) {
+                        targetScene.remove(message.mesh);
                     }
                     
                     if (message.mesh?.geometry) {
@@ -238,10 +265,7 @@
                         message.mesh.material = null;
                     }
                     
-                    if (messageObjects[i]) {
-                        messageObjects.splice(i, 1);
-                        i--;
-                    }
+                    messageObjects.splice(i, 1);
                     
                     if (message.mesh) {
                         message.mesh = null;
@@ -249,7 +273,15 @@
                 }
             }
 
-            renderer.render(scene, camera);
+            // Clear the renderer
+            renderer.clear();
+            
+            // Render regular scene first
+            renderer.render(regularScene, camera);
+            
+            // Render special scene on top
+            renderer.clearDepth();
+            renderer.render(specialScene, camera);
         }
 
         window.addEventListener('resize', onWindowResize, false);
