@@ -10,25 +10,30 @@
 </head>
 <body>
     <script>
+        // Previous setup code remains the same...
         const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const camera = new THREE.PerspectiveCamera(110, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.sortObjects = false;
         document.body.appendChild(renderer.domElement);
 
-        const tunnelLength = 100;
-        const tunnelGeometry = new THREE.BoxGeometry(10, 10, tunnelLength);
+        const tunnelLength = 50;
+        const tunnelGeometry = new THREE.BoxGeometry(15, 15, tunnelLength);
         const tunnelMaterial = new THREE.MeshBasicMaterial({ 
-            color: 0x444444, 
+            color: 0x111111, 
             side: THREE.BackSide 
         });
         const tunnel = new THREE.Mesh(tunnelGeometry, tunnelMaterial);
         scene.add(tunnel);
 
+        camera.position.z = 8;
+        camera.position.y = 1;
+        camera.rotation.x = -0.1;
+
         const messageObjects = [];
 
-        // Function to wrap text
+        // Previous text wrapping and texture creation functions remain the same...
         function wrapText(context, text, maxWidth) {
             const words = text.split(' ');
             const lines = [];
@@ -48,46 +53,51 @@
             return lines;
         }
 
-        // Function to create text texture
         function createTextTexture(text) {
             const canvas = document.createElement('canvas');
             const context = canvas.getContext('2d');
             canvas.width = 512;
-            canvas.height = 256; // Increased height for multiple lines
+            canvas.height = 256;
             
             context.clearRect(0, 0, canvas.width, canvas.height);
             
             const fontSize = 32;
-            context.font = `bold ${fontSize}px monospace`;
+            context.font = `bold ${fontSize}px sans-serif`;
             context.textAlign = 'center';
             context.textBaseline = 'middle';
+
             
-            // Wrap text
-            const maxWidth = 450; // Slightly less than canvas width
+            const maxWidth = 650;
             const lines = wrapText(context, text, maxWidth);
-            const lineHeight = fontSize * 1.2;
+            const lineHeight = fontSize * 1.1;
             const totalHeight = lines.length * lineHeight;
             const startY = (canvas.height - totalHeight) / 2;
 
-            // Draw each line with glow effect
+            // get random bright color
+            const r = Math.floor(Math.random() * 200 + 55);
+            const g = Math.floor(Math.random() * 200 + 55);
+            const b = Math.floor(Math.random() * 200 + 55);
+            const fillStyle = `rgba(${r}, ${g}, ${b},0.7)`;
+
+
+
             lines.forEach((line, index) => {
                 const y = startY + (index * lineHeight) + lineHeight/2;
                 
-                // Add multiple glow layers
                 for(let i = 15; i >= 0; i -= 5) {
-                    context.shadowBlur = i;
-                    context.shadowColor = '#00ff00';
-                    context.fillStyle = `rgba(0, 255, 0, ${0.3 - i * 0.01})`;
-                    context.fillText(line, canvas.width/2, y);
+                    //context.shadowBlur = i;
+                    //context.shadowColor = '#00ff00';
+                    //context.fillStyle = `rgba(0, 255, 0, ${0.3 - i * 0.01})`;
+                    //context.fillText(line, canvas.width/2, y);
                 }
                 
-                // Add bright center text
                 context.shadowBlur = 0;
                 context.fillStyle = 'rgba(255, 255, 255, 0.9)';
                 context.fillText(line, canvas.width/2, y);
+
                 
-                // Add final sharp green overlay
-                context.fillStyle = 'rgba(0, 255, 0, 0.7)';
+                
+                context.fillStyle = fillStyle;
                 context.fillText(line, canvas.width/2, y);
             });
             
@@ -114,36 +124,54 @@
                 side: THREE.DoubleSide
             });
 
-            // Adjust height based on number of lines
-            const height = Math.max(1, lineCount * 0.5);
-            const geometry = new THREE.PlaneGeometry(4, height);
+            const height = Math.max(1.5, lineCount * 0.75);
+            const geometry = new THREE.PlaneGeometry(6, height);
             const mesh = new THREE.Mesh(geometry, material);
             
-            const wall = Math.floor(Math.random() * 4);
+            const wall = Math.floor(Math.random() * 5);
             mesh.position.z = -tunnelLength;
             
             const randomOffset = Math.random() * 0.5;
             
             switch(wall) {
-                case 0:
-                    mesh.position.x = 4.9;
-                    mesh.position.y = Math.random() * 8 - 4;
-                    mesh.rotation.y = Math.PI/2;
-                    break;
-                case 1:
-                    mesh.position.x = -4.9;
-                    mesh.position.y = Math.random() * 8 - 4;
+                case 0: // right wall
+                    mesh.position.x = 7.4;
+                    mesh.position.y = Math.random() * 12 - 6;
                     mesh.rotation.y = -Math.PI/2;
                     break;
-                case 2:
-                    mesh.position.x = Math.random() * 8 - 4;
-                    mesh.position.y = 4.9;
+                case 1: // left wall
+                    mesh.position.x = -7.4;
+                    mesh.position.y = Math.random() * 12 - 6;
+                    mesh.rotation.y = Math.PI/2;
+                    //mesh.rotation.z =0 ; // Flip the text upright on the left wall
+                    
+                    break;
+                case 2: // top wall
+                    mesh.position.x = Math.random() * 12 - 6;
+                    mesh.position.y = 7.4;
                     mesh.rotation.x = Math.PI/2;
                     break;
-                case 3:
-                    mesh.position.x = Math.random() * 8 - 4;
-                    mesh.position.y = -4.9;
+                case 3: // bottom wall
+                    mesh.position.x = Math.random() * 12 - 6;
+                    mesh.position.y = -7.4;
                     mesh.rotation.x = -Math.PI/2;
+                    break;
+                case 4: // center
+                // don't allow text to be placed in the very center
+                    //mesh.position.x = (0.5+Math.random()) * 12 - 6;
+                    //mesh.position.y = (0.5+Math.random()) * 12 - 6;
+                    const getCoordsNotInCenter = () => {
+                        const x = (Math.random()) * 12 - 6;
+                        const y = (Math.random()) * 12 - 6;
+                        if (Math.sqrt(x*x + y*y) < 2) {
+                            return getCoordsNotInCenter();
+                        }
+                        return { x, y };
+                    };
+                    const { x, y } = getCoordsNotInCenter();
+                    mesh.position.x = x;
+                    mesh.position.y = y;
+
                     break;
             }
             
@@ -153,13 +181,10 @@
             scene.add(mesh);
             messageObjects.push({
                 mesh: mesh,
-                speed: 0.05 + Math.random() * 0.1
+                speed: 0.5*(0.08 + Math.random() * 0.12)
             });
         }
 
-        camera.position.z = 5;
-
-        // WebSocket connection
         const ws = new WebSocket('wss://jetstream2.us-east.bsky.network/subscribe?wantedCollections=app.bsky.feed.post');
         
         ws.onmessage = function(event) {
