@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Bluesky Tunnel</title>
+    <title>Bluesky Firehose</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         body { margin: 0; }
@@ -9,13 +9,15 @@
     </style>
 </head>
 <body>
+    <div id="temporary-loading-message" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 24px; color: white; font-family: sans-serif;">Loading...</div>
+
     <script>
         let rotationDir = 1;
         const scene = new THREE.Scene();
         // background black
         scene.background = new THREE.Color(0x000000);
         // fog at the end of the tunnel
-        scene.fog = new THREE.Fog(0x000000, 1, 50);
+        scene.fog = new THREE.Fog(0x000000, 35, 40);
 
         const camera = new THREE.PerspectiveCamera(110, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ alpha: true });
@@ -101,6 +103,7 @@
         }
 
         function createMessage(text) {
+            document.getElementById('temporary-loading-message').style.display = 'none';
             const { texture, lineCount } = createTextTexture(text);
             const material = new THREE.MeshBasicMaterial({ 
                 map: texture,
@@ -224,19 +227,42 @@
                 // Calculate age-based effects
                 const age = currentTime - message.createdAt;
                 
-                // Fade out messages as they get closer to the camera
-                if (message.mesh.position.z > 5) {
-                    const fadeOutProgress = (message.mesh.position.z - 5) / 5;
-                    message.mesh.material.opacity = 1 - fadeOutProgress;
-                }
 
-                if (message.mesh.position.z > 10) {
-                    scene.remove(message.mesh);
-                    message.mesh.geometry.dispose();
-                    message.mesh.material.map.dispose();
-                    message.mesh.material.dispose();
-                    messageObjects.splice(i, 1);
-                }
+                if (message?.mesh?.position?.z > 10) {
+    // Remove from scene first
+    if (scene && message.mesh && scene.children.includes(message.mesh)) {
+        scene.remove(message.mesh);
+    }
+    
+    // Safely dispose geometry
+    if (message.mesh?.geometry) {
+        message.mesh.geometry.dispose();
+        message.mesh.geometry = null;
+    }
+    
+    // Safely dispose textures
+    if (message.mesh?.material?.map) {
+        message.mesh.material.map.dispose();
+        message.mesh.material.map = null;
+    }
+    
+    // Safely dispose material
+    if (message.mesh?.material) {
+        message.mesh.material.dispose();
+        message.mesh.material = null;
+    }
+    
+    // Remove reference from array
+    if (messageObjects[i]) {
+        messageObjects.splice(i, 1);
+        i--; // Adjust iterator since we removed an element
+    }
+    
+    // Clear mesh reference
+    if (message.mesh) {
+        message.mesh = null;
+    }
+}
             }
 
             renderer.render(scene, camera);
