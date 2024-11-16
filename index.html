@@ -10,7 +10,6 @@
 </head>
 <body>
     <script>
-        // Previous setup code remains the same...
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(110, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ alpha: true });
@@ -32,6 +31,7 @@
         camera.rotation.x = -0.1;
 
         const messageObjects = [];
+        let lastTime = 0;
 
         // Previous text wrapping and texture creation functions remain the same...
         function wrapText(context, text, maxWidth) {
@@ -66,37 +66,22 @@
             context.textAlign = 'center';
             context.textBaseline = 'middle';
 
-            
             const maxWidth = 650;
             const lines = wrapText(context, text, maxWidth);
             const lineHeight = fontSize * 1.1;
             const totalHeight = lines.length * lineHeight;
             const startY = (canvas.height - totalHeight) / 2;
 
-            // get random bright color
             const r = Math.floor(Math.random() * 200 + 55);
             const g = Math.floor(Math.random() * 200 + 55);
             const b = Math.floor(Math.random() * 200 + 55);
             const fillStyle = `rgba(${r}, ${g}, ${b},0.7)`;
 
-
-
             lines.forEach((line, index) => {
                 const y = startY + (index * lineHeight) + lineHeight/2;
-                
-                for(let i = 15; i >= 0; i -= 5) {
-                    //context.shadowBlur = i;
-                    //context.shadowColor = '#00ff00';
-                    //context.fillStyle = `rgba(0, 255, 0, ${0.3 - i * 0.01})`;
-                    //context.fillText(line, canvas.width/2, y);
-                }
-                
                 context.shadowBlur = 0;
                 context.fillStyle = 'rgba(255, 255, 255, 0.9)';
                 context.fillText(line, canvas.width/2, y);
-
-                
-                
                 context.fillStyle = fillStyle;
                 context.fillText(line, canvas.width/2, y);
             });
@@ -143,8 +128,6 @@
                     mesh.position.x = -7.4;
                     mesh.position.y = Math.random() * 12 - 6;
                     mesh.rotation.y = Math.PI/2;
-                    //mesh.rotation.z =0 ; // Flip the text upright on the left wall
-                    
                     break;
                 case 2: // top wall
                     mesh.position.x = Math.random() * 12 - 6;
@@ -157,9 +140,6 @@
                     mesh.rotation.x = -Math.PI/2;
                     break;
                 case 4: // center
-                // don't allow text to be placed in the very center
-                    //mesh.position.x = (0.5+Math.random()) * 12 - 6;
-                    //mesh.position.y = (0.5+Math.random()) * 12 - 6;
                     const getCoordsNotInCenter = () => {
                         const x = (Math.random()) * 12 - 6;
                         const y = (Math.random()) * 12 - 6;
@@ -171,7 +151,6 @@
                     const { x, y } = getCoordsNotInCenter();
                     mesh.position.x = x;
                     mesh.position.y = y;
-
                     break;
             }
             
@@ -181,7 +160,8 @@
             scene.add(mesh);
             messageObjects.push({
                 mesh: mesh,
-                speed: 0.5*(0.08 + Math.random() * 0.12)
+                speed: 0.5*(0.08 + Math.random() * 0.12),
+                createdAt: performance.now()
             });
         }
 
@@ -205,10 +185,25 @@
         function animate(currentTime) {
             requestAnimationFrame(animate);
 
+            // Calculate time delta
+            const deltaTime = lastTime === 0 ? 0 : (currentTime - lastTime) / 16.667; // Normalize to ~60fps
+            lastTime = currentTime;
+
             for (let i = messageObjects.length - 1; i >= 0; i--) {
                 const message = messageObjects[i];
-                message.mesh.position.z += message.speed;
+                
+                // Apply time-based movement
+                message.mesh.position.z += message.speed * deltaTime;
                 message.mesh.renderOrder = -message.mesh.position.z;
+
+                // Calculate age-based effects
+                const age = currentTime - message.createdAt;
+                
+                // Fade out messages as they get closer to the camera
+                if (message.mesh.position.z > 5) {
+                    const fadeOutProgress = (message.mesh.position.z - 5) / 5;
+                    message.mesh.material.opacity = 1 - fadeOutProgress;
+                }
 
                 if (message.mesh.position.z > 10) {
                     scene.remove(message.mesh);
