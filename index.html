@@ -180,7 +180,7 @@
             });
         }
 
-        const ws = new WebSocket('ws://bsky-relay.c.theo.io/subscribe?wantedCollections=app.bsky.feed.post');
+        const ws = new WebSocket('wss://bsky-relay.c.theo.io/subscribe?wantedCollections=app.bsky.feed.post');
         
         ws.onmessage = function(event) {
             const data = JSON.parse(event.data);
