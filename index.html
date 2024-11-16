@@ -12,20 +12,25 @@
     <script>
         let rotationDir = 1;
         const scene = new THREE.Scene();
+        // background black
+        scene.background = new THREE.Color(0x000000);
+        // fog at the end of the tunnel
+        scene.fog = new THREE.Fog(0x000000, 1, 50);
+
         const camera = new THREE.PerspectiveCamera(110, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.sortObjects = false;
         document.body.appendChild(renderer.domElement);
 
-        const tunnelLength = 50;
+        const tunnelLength = 40;
         const tunnelGeometry = new THREE.BoxGeometry(15, 15, tunnelLength);
         const tunnelMaterial = new THREE.MeshBasicMaterial({ 
             color: 0x111111, 
             side: THREE.BackSide 
         });
         const tunnel = new THREE.Mesh(tunnelGeometry, tunnelMaterial);
-        scene.add(tunnel);
+        //scene.add(tunnel);
 
         camera.position.z = 8;
         camera.position.y = 1;
@@ -114,12 +119,34 @@
             const geometry = new THREE.PlaneGeometry(6, height);
             const mesh = new THREE.Mesh(geometry, material);
             
-            const wall = Math.floor(Math.random() * 5);
+            let wall = Math.floor(Math.random() * 4.01);
             mesh.position.z = -tunnelLength;
             
             const randomOffset = Math.random() * 0.5;
+            if (text.includes('🔥')|| text.includes('fire')|| wall>3){
+                wall = -1;
+            }
+
             
             switch(wall) {
+                case -1: // center
+                // invisible
+                    const centerExtent=10
+                
+                    const getCoordsNotInCenter = () => {
+                        const x = (Math.random()) * centerExtent - centerExtent/2;
+                        const y = (Math.random()) * centerExtent - centerExtent/2;
+                        if (Math.sqrt(x*x + y*y) < 2) {
+                            return getCoordsNotInCenter();
+                        }
+                        return { x, y };
+                    };
+                    const { x, y } = getCoordsNotInCenter();
+                    mesh.position.x = x;
+                    mesh.position.y = y;
+                    
+                    break;
+
                 case 0: // right wall
                     mesh.position.x = 7.4;
                     mesh.position.y = Math.random() * 12 - 6;
@@ -140,22 +167,7 @@
                     mesh.position.y = -7.4;
                     mesh.rotation.x = -Math.PI/2;
                     break;
-                case 4: // center
-                // invisible
                 
-                    const getCoordsNotInCenter = () => {
-                        const x = (Math.random()) * 12 - 6;
-                        const y = (Math.random()) * 12 - 6;
-                        if (Math.sqrt(x*x + y*y) < 2) {
-                            return getCoordsNotInCenter();
-                        }
-                        return { x, y };
-                    };
-                    const { x, y } = getCoordsNotInCenter();
-                    mesh.position.x = x;
-                    mesh.position.y = y;
-                    mesh.position.x=-100;
-                    break;
             }
             
             mesh.position.z += randomOffset;
