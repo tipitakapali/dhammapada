@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Bluesky Tunnel</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body { margin: 0; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <script>
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.sortObjects = false;
+        document.body.appendChild(renderer.domElement);
+
+        const tunnelLength = 100;
+        const tunnelGeometry = new THREE.BoxGeometry(10, 10, tunnelLength);
+        const tunnelMaterial = new THREE.MeshBasicMaterial({ 
+            color: 0x444444, 
+            side: THREE.BackSide 
+        });
+        const tunnel = new THREE.Mesh(tunnelGeometry, tunnelMaterial);
+        scene.add(tunnel);
+
+        const messageObjects = [];
+
+        // Function to wrap text
+        function wrapText(context, text, maxWidth) {
+            const words = text.split(' ');
+            const lines = [];
+            let currentLine = words[0];
+
+            for (let i = 1; i < words.length; i++) {
+                const word = words[i];
+                const width = context.measureText(currentLine + " " + word).width;
+                if (width < maxWidth) {
+                    currentLine += " " + word;
+                } else {
+                    lines.push(currentLine);
+                    currentLine = word;
+                }
+            }
+            lines.push(currentLine);
+            return lines;
+        }
+
+        // Function to create text texture
+        function createTextTexture(text) {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.width = 512;
+            canvas.height = 256; // Increased height for multiple lines
+            
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const fontSize = 32;
+            context.font = `bold ${fontSize}px monospace`;
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            
+            // Wrap text
+            const maxWidth = 450; // Slightly less than canvas width
+            const lines = wrapText(context, text, maxWidth);
+            const lineHeight = fontSize * 1.2;
+            const totalHeight = lines.length * lineHeight;
+            const startY = (canvas.height - totalHeight) / 2;
+
+            // Draw each line with glow effect
+            lines.forEach((line, index) => {
+                const y = startY + (index * lineHeight) + lineHeight/2;
+                
+                // Add multiple glow layers
+                for(let i = 15; i >= 0; i -= 5) {
+                    context.shadowBlur = i;
+                    context.shadowColor = '#00ff00';
+                    context.fillStyle = `rgba(0, 255, 0, ${0.3 - i * 0.01})`;
+                    context.fillText(line, canvas.width/2, y);
+                }
+                
+                // Add bright center text
+                context.shadowBlur = 0;
+                context.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                context.fillText(line, canvas.width/2, y);
+                
+                // Add final sharp green overlay
+                context.fillStyle = 'rgba(0, 255, 0, 0.7)';
+                context.fillText(line, canvas.width/2, y);
+            });
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+            return { 
+                texture,
+                lineCount: lines.length
+            };
+        }
+
+        function createMessage(text) {
+            const { texture, lineCount } = createTextTexture(text);
+            const material = new THREE.MeshBasicMaterial({ 
+                map: texture,
+                transparent: true,
+                opacity: 1,
+                depthWrite: false,
+                depthTest: true,
+                blending: THREE.CustomBlending,
+                blendEquation: THREE.AddEquation,
+                blendSrc: THREE.SrcAlphaFactor,
+                blendDst: THREE.OneMinusSrcAlphaFactor,
+                side: THREE.DoubleSide
+            });
+
+            // Adjust height based on number of lines
+            const height = Math.max(1, lineCount * 0.5);
+            const geometry = new THREE.PlaneGeometry(4, height);
+            const mesh = new THREE.Mesh(geometry, material);
+            
+            const wall = Math.floor(Math.random() * 4);
+            mesh.position.z = -tunnelLength;
+            
+            const randomOffset = Math.random() * 0.5;
+            
+            switch(wall) {
+                case 0:
+                    mesh.position.x = 4.9;
+                    mesh.position.y = Math.random() * 8 - 4;
+                    mesh.rotation.y = Math.PI/2;
+                    break;
+                case 1:
+                    mesh.position.x = -4.9;
+                    mesh.position.y = Math.random() * 8 - 4;
+                    mesh.rotation.y = -Math.PI/2;
+                    break;
+                case 2:
+                    mesh.position.x = Math.random() * 8 - 4;
+                    mesh.position.y = 4.9;
+                    mesh.rotation.x = Math.PI/2;
+                    break;
+                case 3:
+                    mesh.position.x = Math.random() * 8 - 4;
+                    mesh.position.y = -4.9;
+                    mesh.rotation.x = -Math.PI/2;
+                    break;
+            }
+            
+            mesh.position.z += randomOffset;
+            mesh.renderOrder = -mesh.position.z;
+            
+            scene.add(mesh);
+            messageObjects.push({
+                mesh: mesh,
+                speed: 0.05 + Math.random() * 0.1
+            });
+        }
+
+        camera.position.z = 5;
+
+        // WebSocket connection
+        const ws = new WebSocket('wss://jetstream2.us-east.bsky.network/subscribe?wantedCollections=app.bsky.feed.post');
+        
+        ws.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            if (data.commit && data.commit.record && data.commit.record.text) {
+                createMessage(data.commit.record.text);
+            }
+        };
+
+        ws.onerror = function(error) {
+            console.error('WebSocket Error:', error);
+        };
+
+        ws.onclose = function() {
+            console.log('WebSocket Connection Closed');
+        };
+
+        function animate(currentTime) {
+            requestAnimationFrame(animate);
+
+            for (let i = messageObjects.length - 1; i >= 0; i--) {
+                const message = messageObjects[i];
+                message.mesh.position.z += message.speed;
+                message.mesh.renderOrder = -message.mesh.position.z;
+
+                if (message.mesh.position.z > 10) {
+                    scene.remove(message.mesh);
+                    message.mesh.geometry.dispose();
+                    message.mesh.material.map.dispose();
+                    message.mesh.material.dispose();
+                    messageObjects.splice(i, 1);
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', onWindowResize, false);
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        animate(0);
+    </script>
+</body>
+</html>
