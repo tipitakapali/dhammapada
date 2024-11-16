@@ -80,7 +80,7 @@
 
             lines.forEach((line, index) => {
                 const y = startY + (index * lineHeight) + lineHeight/2;
-                context.shadowBlur = 0;
+                context.shadowBlur = 10;
                 context.fillStyle = 'rgba(255, 255, 255, 0.9)';
                 context.fillText(line, canvas.width/2, y);
                 context.fillStyle = fillStyle;
@@ -103,10 +103,10 @@
                 opacity: 1,
                 depthWrite: false,
                 depthTest: true,
-                blending: THREE.CustomBlending,
-                blendEquation: THREE.AddEquation,
-                blendSrc: THREE.SrcAlphaFactor,
-                blendDst: THREE.OneMinusSrcAlphaFactor,
+              //  blending: THREE.CustomBlending,
+               // blendEquation: THREE.AddEquation,
+               // blendSrc: THREE.SrcAlphaFactor,
+               // blendDst: THREE.OneMinusSrcAlphaFactor,
                 side: THREE.DoubleSide
             });
 
