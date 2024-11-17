@@ -14,6 +14,8 @@
         body { margin: 0; }
         canvas { display: block; }
     </style>
+    <meta property="og:title" content="Bluesky Firehose" />
+    <meta property="og:description" content="The bluesky firehose visualised in 3D" />
 </head>
 <body>
     <div id="temporary-loading-message" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 24px; color: white; font-family: sans-serif;">Loading...</div>
@@ -33,6 +35,9 @@
                     canvas.height = 256;
                     const texture = new THREE.CanvasTexture(canvas);
                     texture.needsUpdate = true;
+                    if(window.supersharp){
+                newTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+                }
                     this.pool.push({
                         texture,
                         canvas,
@@ -54,6 +59,9 @@
                 newCanvas.height = 256;
                 const newTexture = new THREE.CanvasTexture(newCanvas);
                 newTexture.needsUpdate = true;
+                if(window.supersharp){
+                newTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+                }
                 const newObj = {
                     texture: newTexture,
                     canvas: newCanvas,
@@ -74,6 +82,7 @@
         window.discardFrac = window.discardFrac ? parseFloat(window.discardFrac) : 0.0;
         window.speed = urlParams.get('speed');
         window.speed = window.speed ? parseFloat(window.speed) : 0.5;
+        window.supersharp = urlParams.get('supersharp');
 
         const texturePool = new TexturePool();
         let rotationDir = 1;
