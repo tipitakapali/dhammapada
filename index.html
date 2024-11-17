@@ -136,7 +136,8 @@
             });
             
             const texture = new THREE.CanvasTexture(canvas);
-            texture.needsUpdate = true;
+            //texture.needsUpdate = true;
+            //texture.anisotropy = Math.min(16, renderer.capabilities.getMaxAnisotropy());
             return { 
                 texture,
                 lineCount: lines.length
