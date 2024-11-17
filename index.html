@@ -1,38 +1,88 @@
 <!DOCTYPE html>
 <html>
 <head>
-   <script async="" src="https://www.googletagmanager.com/gtag/js?id=G-NDR7D0LP60"></script><script>
+    <script async="" src="https://www.googletagmanager.com/gtag/js?id=G-NDR7D0LP60"></script>
+    <script>
         window.dataLayer = window.dataLayer || [];
         function gtag(){dataLayer.push(arguments);}
         gtag('js', new Date());
         gtag('config', 'G-NDR7D0LP60');
-      </script>
+    </script>
     <title>Bluesky Firehose</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         body { margin: 0; }
         canvas { display: block; }
     </style>
-    <meta property="og:title" content="Bluesky Firehose" />
-    <meta property="og:description" content="The bluesky firehose visualised in 3D" />
 </head>
 <body>
     <div id="temporary-loading-message" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 24px; color: white; font-family: sans-serif;">Loading...</div>
     <script>
+        // Texture Pool Manager
+        class TexturePool {
+            constructor(size = 50) {
+                this.pool = [];
+                this.inUse = new Set();
+                this.initPool(size);
+            }
+
+            initPool(size) {
+                for (let i = 0; i < size; i++) {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 700;
+                    canvas.height = 256;
+                    const texture = new THREE.CanvasTexture(canvas);
+                    texture.needsUpdate = true;
+                    this.pool.push({
+                        texture,
+                        canvas,
+                        context: canvas.getContext('2d')
+                    });
+                }
+            }
+
+            acquire() {
+                const textureObj = this.pool.find(obj => !this.inUse.has(obj));
+                if (textureObj) {
+                    this.inUse.add(textureObj);
+                    textureObj.context.clearRect(0, 0, textureObj.canvas.width, textureObj.canvas.height);
+                    return textureObj;
+                }
+                console.warn('Texture pool exhausted, creating new texture');
+                const newCanvas = document.createElement('canvas');
+                newCanvas.width = 700;
+                newCanvas.height = 256;
+                const newTexture = new THREE.CanvasTexture(newCanvas);
+                newTexture.needsUpdate = true;
+                const newObj = {
+                    texture: newTexture,
+                    canvas: newCanvas,
+                    context: newCanvas.getContext('2d')
+                };
+                this.pool.push(newObj);
+                this.inUse.add(newObj);
+                return newObj;
+            }
+
+            release(textureObj) {
+                this.inUse.delete(textureObj);
+            }
+        }
+
         const urlParams = new URLSearchParams(window.location.search);
         window.discardFrac = urlParams.get('discardFrac');
         window.discardFrac = window.discardFrac ? parseFloat(window.discardFrac) : 0.0;
         window.speed = urlParams.get('speed');
         window.speed = window.speed ? parseFloat(window.speed) : 0.5;
+
+        const texturePool = new TexturePool();
         let rotationDir = 1;
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x000000);
         scene.fog = new THREE.Fog(0x000000, 35, 40);
 
         const camera = new THREE.PerspectiveCamera(110, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ 
-            alpha: true
-        });
+        const renderer = new THREE.WebGLRenderer({ alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.autoClear = false;
         renderer.sortObjects = false;
@@ -41,10 +91,9 @@
         // Mouse control variables
         let isDragging = false;
         let previousMousePosition = { x: 0, y: 0 };
-        const maxRotation = THREE.MathUtils.degToRad(15); // 15 degrees in radians
+        const maxRotation = THREE.MathUtils.degToRad(15);
         const mouseSensitivity = 0.00003;
 
-        // Create two scenes: one for regular messages, one for special
         const regularScene = new THREE.Scene();
         regularScene.background = new THREE.Color(0x000000);
         regularScene.fog = new THREE.Fog(0x000000, 35, 40);
@@ -86,11 +135,9 @@
             return lines;
         }
 
-        function createTextTexture(text, specialColor) {
-            const canvas = document.createElement('canvas');
-            const context = canvas.getContext('2d');
-            canvas.width = 700;
-            canvas.height = 256;
+        function updateTextTexture(textureObj, text, specialColor) {
+            const { context, texture } = textureObj;
+            const canvas = textureObj.canvas;
             
             context.clearRect(0, 0, canvas.width, canvas.height);
             
@@ -135,11 +182,9 @@
                 context.fillText(line, canvas.width/2, y);
             });
             
-            const texture = new THREE.CanvasTexture(canvas);
-            //texture.needsUpdate = true;
-            //texture.anisotropy = Math.min(16, renderer.capabilities.getMaxAnisotropy());
+            texture.needsUpdate = true;
             return { 
-                texture,
+                textureObj,
                 lineCount: lines.length
             };
         }
@@ -150,22 +195,22 @@
                 wall = -1;
             }
             document.getElementById('temporary-loading-message').style.display = 'none';
-            const { texture, lineCount } = createTextTexture(text, wall==-1);
+
+            const textureObj = texturePool.acquire();
+            const { lineCount } = updateTextTexture(textureObj, text, wall === -1);
             
             const height = Math.max(1.5, lineCount * 0.75);
             const geometry = new THREE.PlaneGeometry(7, height);
             
             const randomOffset = Math.random() * 0.5;
 
-
-            if(wall!==-1){
-                if(window.discardFrac && Math.random() < window.discardFrac) {
-                    return;
-                }
+            if(wall !== -1 && window.discardFrac && Math.random() < window.discardFrac) {
+                texturePool.release(textureObj);
+                return;
             }
 
             const material = new THREE.MeshBasicMaterial({ 
-                map: texture,
+                map: textureObj.texture,
                 transparent: true,
                 opacity: 1,
                 depthWrite: false,
@@ -175,6 +220,7 @@
 
             const mesh = new THREE.Mesh(geometry, material);
             mesh.position.z = -tunnelLength + randomOffset;
+            mesh.userData.textureObj = textureObj;
 
             switch(wall) {
                 case -1:
@@ -237,15 +283,7 @@
             }
         };
 
-        ws.onerror = function(error) {
-            console.error('WebSocket Error:', error);
-        };
-
-        ws.onclose = function() {
-            console.log('WebSocket Connection Closed');
-        };
-
-        // Mouse event listeners
+        // Mouse event handlers remain the same
         renderer.domElement.addEventListener('mousedown', onMouseDown);
         renderer.domElement.addEventListener('mousemove', onMouseMove);
         renderer.domElement.addEventListener('mouseup', onMouseUp);
@@ -267,11 +305,9 @@
                 y: event.clientY - previousMousePosition.y
             };
 
-            // Calculate new rotation
             const newRotationY = camera.rotation.y + deltaMove.x * mouseSensitivity;
             const newRotationX = camera.rotation.x + deltaMove.y * mouseSensitivity;
 
-            // Clamp rotations to maximum values
             camera.rotation.y = THREE.MathUtils.clamp(newRotationY, -maxRotation, maxRotation);
             camera.rotation.x = THREE.MathUtils.clamp(newRotationX, -0.1 - maxRotation, -0.1 + maxRotation);
 
@@ -291,8 +327,6 @@
             const deltaTime = lastTime === 0 ? 0 : (currentTime - lastTime) / 16.667;
             lastTime = currentTime;
 
-            // Auto-rotation removed since we're using mouse control
-
             for (let i = messageObjects.length - 1; i >= 0; i--) {
                 const message = messageObjects[i];
                 message.mesh.position.z += message.speed * deltaTime;
@@ -303,14 +337,14 @@
                         targetScene.remove(message.mesh);
                     }
                     
+                    // Return texture to pool
+                    if (message.mesh.userData.textureObj) {
+                        texturePool.release(message.mesh.userData.textureObj);
+                    }
+                    
                     if (message.mesh?.geometry) {
                         message.mesh.geometry.dispose();
                         message.mesh.geometry = null;
-                    }
-                    
-                    if (message.mesh?.material?.map) {
-                        message.mesh.material.map.dispose();
-                        message.mesh.material.map = null;
                     }
                     
                     if (message.mesh?.material) {
