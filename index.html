@@ -238,8 +238,9 @@ https://github.com/theosanderson/firehose
             switch(wall) {
                 case -1:
                     const centerExtent = 10;
+                    const centerExtentX = 7;
                     const getCoordsNotInCenter = () => {
-                        const x = (Math.random()) * centerExtent - centerExtent/2;
+                        const x = (Math.random()) * centerExtentX - centerExtentX/2;
                         const y = (Math.random()) * centerExtent - centerExtent/2;
                         if (Math.sqrt(x*x + y*y) < 2) {
                             return getCoordsNotInCenter();
