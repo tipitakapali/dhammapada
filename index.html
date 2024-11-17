@@ -7,17 +7,11 @@
         body { margin: 0; }
         canvas { display: block; }
     </style>
-<meta property="og:title" content="Bluesky Firehose" />
-<meta property="og:description" content="The bluesky firehose visualised in 3D" />
+    <meta property="og:title" content="Bluesky Firehose" />
+    <meta property="og:description" content="The bluesky firehose visualised in 3D" />
 </head>
 <body>
     <div id="temporary-loading-message" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 24px; color: white; font-family: sans-serif;">Loading...</div>
-<script async="" src="https://www.googletagmanager.com/gtag/js?id=G-NDR7D0LP60"></script><script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-NDR7D0LP60');
-  </script>
     <script>
         const urlParams = new URLSearchParams(window.location.search);
         window.discardFrac = urlParams.get('discardFrac');
@@ -29,13 +23,18 @@
 
         const camera = new THREE.PerspectiveCamera(110, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ 
-            alpha: true,
-          //  logarithmicDepthBuffer: true 
+            alpha: true
         });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.autoClear = false;  //
-        renderer.sortObjects = false;  //
+        renderer.autoClear = false;
+        renderer.sortObjects = false;
         document.body.appendChild(renderer.domElement);
+
+        // Mouse control variables
+        let isDragging = false;
+        let previousMousePosition = { x: 0, y: 0 };
+        const maxRotation = THREE.MathUtils.degToRad(15); // 15 degrees in radians
+        const mouseSensitivity = 0.00003;
 
         // Create two scenes: one for regular messages, one for special
         const regularScene = new THREE.Scene();
@@ -103,11 +102,9 @@
             let b = Math.floor(Math.random() * 200 + 55);
 
             if (specialColor) {
-                // brighten more
                 r = Math.floor(Math.random() * 100 + 155);
                 g = Math.floor(Math.random() * 100 + 155);
                 b = Math.floor(Math.random() * 100 + 155);
-                
             }
             const fillStyle = `rgba(${r}, ${g}, ${b}, 0.8)`;
 
@@ -144,17 +141,20 @@
                 wall = -1;
             }
             document.getElementById('temporary-loading-message').style.display = 'none';
-            const { texture, lineCount } = createTextTexture(text,wall==-1);
+            const { texture, lineCount } = createTextTexture(text, wall==-1);
             
             const height = Math.max(1.5, lineCount * 0.75);
             const geometry = new THREE.PlaneGeometry(7, height);
             
-            
             const randomOffset = Math.random() * 0.5;
-            
-           
 
-            // Create different materials for special vs regular messages
+
+            if(wall!==-1){
+                if(window.discardFrac && Math.random() < window.discardFrac) {
+                    return;
+                }
+            }
+
             const material = new THREE.MeshBasicMaterial({ 
                 map: texture,
                 transparent: true,
@@ -167,12 +167,6 @@
             const mesh = new THREE.Mesh(geometry, material);
             mesh.position.z = -tunnelLength + randomOffset;
 
-
-            if(wall!==-1){
-                if(window.discardFrac && Math.random() < window.discardFrac) {
-                    return;
-                }
-            }
             switch(wall) {
                 case -1:
                     const centerExtent = 10;
@@ -189,7 +183,7 @@
                     mesh.position.y = y;
                     mesh.special = true;
                     mesh.renderOrder = Infinity;
-                    specialScene.add(mesh);  // Add to special scene
+                    specialScene.add(mesh);
                     break;
                 default:
                     switch(wall) {
@@ -214,7 +208,7 @@
                             mesh.rotation.x = -Math.PI/2;
                             break;
                     }
-                    regularScene.add(mesh);  // Add to regular scene
+                    regularScene.add(mesh);
             }
             
             messageObjects.push({
@@ -242,19 +236,53 @@
             console.log('WebSocket Connection Closed');
         };
 
+        // Mouse event listeners
+        renderer.domElement.addEventListener('mousedown', onMouseDown);
+        renderer.domElement.addEventListener('mousemove', onMouseMove);
+        renderer.domElement.addEventListener('mouseup', onMouseUp);
+        renderer.domElement.addEventListener('mouseleave', onMouseUp);
+
+        function onMouseDown(event) {
+            isDragging = true;
+            previousMousePosition = {
+                x: event.clientX,
+                y: event.clientY
+            };
+        }
+
+        function onMouseMove(event) {
+            if (!isDragging) return;
+
+            const deltaMove = {
+                x: event.clientX - previousMousePosition.x,
+                y: event.clientY - previousMousePosition.y
+            };
+
+            // Calculate new rotation
+            const newRotationY = camera.rotation.y + deltaMove.x * mouseSensitivity;
+            const newRotationX = camera.rotation.x + deltaMove.y * mouseSensitivity;
+
+            // Clamp rotations to maximum values
+            camera.rotation.y = THREE.MathUtils.clamp(newRotationY, -maxRotation, maxRotation);
+            camera.rotation.x = THREE.MathUtils.clamp(newRotationX, -0.1 - maxRotation, -0.1 + maxRotation);
+
+            previousMousePosition = {
+                x: event.clientX,
+                y: event.clientY
+            };
+        }
+
+        function onMouseUp() {
+            isDragging = false;
+        }
+
         function animate(currentTime) {
             requestAnimationFrame(animate);
 
             const deltaTime = lastTime === 0 ? 0 : (currentTime - lastTime) / 16.667;
             lastTime = currentTime;
-            const rotationExtent = 0.3;
-           
-            camera.rotation.z += deltaTime * 0.0005 * rotationDir;
-            if (camera.rotation.z > rotationExtent) {
-                rotationDir = -1;
-            } else if (camera.rotation.z < -rotationExtent) {
-                rotationDir = 1;
-            }
+
+            // Auto-rotation removed since we're using mouse control
 
             for (let i = messageObjects.length - 1; i >= 0; i--) {
                 const message = messageObjects[i];
@@ -289,13 +317,8 @@
                 }
             }
 
-            // Clear the renderer
             renderer.clear();
-            
-            // Render regular scene first
             renderer.render(regularScene, camera);
-            
-            // Render special scene on top
             renderer.clearDepth();
             renderer.render(specialScene, camera);
         }
