@@ -26,60 +26,127 @@ https://github.com/theosanderson/firehose
     <script>
         // Texture Pool Manager
         class TexturePool {
-            constructor(size = 50) {
-                this.pool = [];
-                this.inUse = new Set();
-                this.initPool(size);
-            }
+    constructor(size = 50) {
+        // Create separate pools for different texture heights
+        this.shortPool = [];  // For 1-2 lines (128px height)
+        this.tallPool = [];   // For 3+ lines (256px height)
+        this.inUse = new Set();
+        this.initPools(size);
+    }
 
-            initPool(size) {
-                for (let i = 0; i < size; i++) {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = 700;
-                    canvas.height = 256;
-                    const texture = new THREE.CanvasTexture(canvas);
-                    texture.needsUpdate = true;
-                    if(window.supersharp){
-                newTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-                }
-                    this.pool.push({
-                        texture,
-                        canvas,
-                        context: canvas.getContext('2d')
-                    });
-                }
-            }
+    initPools(size) {
+        // Distribute the pool size
+        const shortSize = Math.floor(size * 0.7);  // 70% short textures
+        const tallSize = size - shortSize;         // 30% tall textures
 
-            acquire() {
-                const textureObj = this.pool.find(obj => !this.inUse.has(obj));
-                if (textureObj) {
-                    this.inUse.add(textureObj);
-                    textureObj.context.clearRect(0, 0, textureObj.canvas.width, textureObj.canvas.height);
-                    return textureObj;
-                }
-                console.warn('Texture pool exhausted, creating new texture');
-                const newCanvas = document.createElement('canvas');
-                newCanvas.width = 700;
-                newCanvas.height = 256;
-                const newTexture = new THREE.CanvasTexture(newCanvas);
-                newTexture.needsUpdate = true;
-                if(window.supersharp){
-                newTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-                }
-                const newObj = {
-                    texture: newTexture,
-                    canvas: newCanvas,
-                    context: newCanvas.getContext('2d')
-                };
-                this.pool.push(newObj);
-                this.inUse.add(newObj);
-                return newObj;
+        // Initialize short textures (700x128)
+        for (let i = 0; i < shortSize; i++) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 700;
+            canvas.height = 128;
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+            if(window.supersharp){
+                texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
             }
-
-            release(textureObj) {
-                this.inUse.delete(textureObj);
-            }
+            this.shortPool.push({
+                texture,
+                canvas,
+                context: canvas.getContext('2d'),
+                size: 'short'
+            });
         }
+
+        // Initialize tall textures (700x256)
+        for (let i = 0; i < tallSize; i++) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 700;
+            canvas.height = 256;
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+            if(window.supersharp){
+                texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+            }
+            this.tallPool.push({
+                texture,
+                canvas,
+                context: canvas.getContext('2d'),
+                size: 'tall'
+            });
+        }
+    }
+
+    getTextureSize(text) {
+     
+        // Handle undefined or empty text
+        if (!text) return 'short';
+        
+        // Clean the text and handle special characters
+        const cleanText = text.toString().trim();
+        if (cleanText.length === 0) return 'short';
+
+        // Use tall texture for longer text or special characters
+        const hasEmojis = /[\u{1F300}-\u{1F9FF}]/u.test(cleanText);
+        const hasSpecialChars = /[🔥\u{1F525}]/u.test(cleanText);
+        
+        if ( cleanText.length > 120) {
+            return 'tall';
+        }
+        
+        return 'short';
+    }
+
+    acquire(text) {
+        const size = this.getTextureSize(text);
+        const pool = size === 'short' ? this.shortPool : this.tallPool;
+
+        // Try to get an available texture from the appropriate pool
+        const textureObj = pool.find(obj => !this.inUse.has(obj));
+        if (textureObj) {
+            this.inUse.add(textureObj);
+            textureObj.context.clearRect(0, 0, textureObj.canvas.width, textureObj.canvas.height);
+            return textureObj;
+        }
+
+        // Fallback to any available texture
+        const anyAvailable = [...this.shortPool, ...this.tallPool]
+            .find(obj => !this.inUse.has(obj));
+        if (anyAvailable) {
+            this.inUse.add(anyAvailable);
+            anyAvailable.context.clearRect(0, 0, anyAvailable.canvas.width, anyAvailable.canvas.height);
+            return anyAvailable;
+        }
+
+        // Create new texture if none available
+        //console.warn(`${size} texture pool exhausted, creating new texture`);
+        const height = size === 'short' ? 128 : 256;
+        
+        const newCanvas = document.createElement('canvas');
+        newCanvas.width = 700;
+        newCanvas.height = height;
+        const newTexture = new THREE.CanvasTexture(newCanvas);
+        newTexture.needsUpdate = true;
+        if(window.supersharp){
+            newTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+        }
+        
+        const newObj = {
+            texture: newTexture,
+            canvas: newCanvas,
+            context: newCanvas.getContext('2d'),
+            size: size
+        };
+        pool.push(newObj);
+        this.inUse.add(newObj);
+        return newObj;
+    }
+
+    release(textureObj) {
+        if (textureObj) {
+            this.inUse.delete(textureObj);
+        }
+    }
+}
 
         const urlParams = new URLSearchParams(window.location.search);
         window.discardFrac = urlParams.get('discardFrac');
@@ -209,7 +276,7 @@ https://github.com/theosanderson/firehose
             }
             document.getElementById('temporary-loading-message').style.display = 'none';
 
-            const textureObj = texturePool.acquire();
+            const textureObj = texturePool.acquire(text);
             const { lineCount } = updateTextTexture(textureObj, text, wall === -1);
             
             const height = Math.max(1.5, lineCount * 0.75);
