@@ -4,21 +4,21 @@ https://github.com/theosanderson/firehose
 -->
 <html>
 <head>
-    <script async="" src="https://www.googletagmanager.com/gtag/js?id=G-NDR7D0LP60"></script>
+    <!-- <script async="" src="https://www.googletagmanager.com/gtag/js?id=G-NDR7D0LP60"></script>
     <script>
         window.dataLayer = window.dataLayer || [];
         function gtag(){dataLayer.push(arguments);}
         gtag('js', new Date());
         gtag('config', 'G-NDR7D0LP60');
-    </script>
-    <title>Bluesky Firehose</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    </script> -->
+    <title>Dhammapadapāḷi verses visualised in 3D</title>
+    <script src="three.min.js"></script>
     <style>
         body { margin: 0; }
         canvas { display: block; }
     </style>
-    <meta property="og:title" content="Bluesky Firehose" />
-    <meta property="og:description" content="The bluesky firehose visualised in 3D" />
+    <meta property="og:title" content="Dhammapadapāḷi verses visualised in 3D" />
+    <meta property="og:description" content="Dhammapadapāḷi verses visualised in 3D" />
 </head>
 <body
     style="background-color: #111; color: white; "></body>
@@ -355,14 +355,14 @@ https://github.com/theosanderson/firehose
             });
         }
 
-        const ws = new WebSocket('wss://bsky-relay.c.theo.io/subscribe?wantedCollections=app.bsky.feed.post');
+        // const ws = new WebSocket('wss://bsky-relay.c.theo.io/subscribe?wantedCollections=app.bsky.feed.post');
         
-        ws.onmessage = function(event) {
-            const data = JSON.parse(event.data);
-            if (data.commit && data.commit.record && data.commit.record.text) {
-                createMessage(data.commit.record.text);
-            }
-        };
+        // ws.onmessage = function(event) {
+        //     const data = JSON.parse(event.data);
+        //     if (data.commit && data.commit.record && data.commit.record.text) {
+        //         createMessage(data.commit.record.text);
+        //     }
+        // };
 
         // Mouse event handlers remain the same
         renderer.domElement.addEventListener('mousedown', onMouseDown);
@@ -457,5 +457,6 @@ https://github.com/theosanderson/firehose
 
         animate(0);
     </script>
+<script src="./fetchMessages.js" defer></script>
 </body>
 </html>

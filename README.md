@@ -1,3 +1,7 @@
-The Bluesky firehose viewed in the style of a Windows XP screensaver
+Dhammapadapāḷi verses are from: https://tipitakapali.org/book/s0502m.mul.html
 
-http://firehose3d.theo.io/
+----- 
+
+Dhammapadapāḷi verses visualised in 3D in the style of a Windows XP screensaver.
+
+Code is from: https://github.com/theosanderson/firehose
