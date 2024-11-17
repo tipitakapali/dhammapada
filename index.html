@@ -19,6 +19,9 @@
     gtag('config', 'G-NDR7D0LP60');
   </script>
     <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        window.discardFrac = urlParams.get('discardFrac');
+        window.discardFrac = window.discardFrac ? parseFloat(window.discardFrac) : 0.0;
         let rotationDir = 1;
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x000000);
@@ -163,7 +166,13 @@
 
             const mesh = new THREE.Mesh(geometry, material);
             mesh.position.z = -tunnelLength + randomOffset;
-            
+
+
+            if(wall!==-1){
+                if(window.discardFrac && Math.random() < window.discardFrac) {
+                    return;
+                }
+            }
             switch(wall) {
                 case -1:
                     const centerExtent = 10;
